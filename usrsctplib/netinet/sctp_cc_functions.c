@@ -147,6 +147,8 @@ sctp_cwnd_update_after_fr(struct sctp_tcb *stcb,
 		    (asoc->sctp_cmt_on_off > 0)) {
 			/* out of a RFC2582 Fast recovery window? */
 			if (net->net_ack > 0) {
+				net->continues_loss_cnt += 1;
+				if (net->continues_loss_cnt > 3) {
 				/*
 				 * per section 7.2.3, are there any
 				 * destinations that had a fast retransmit
@@ -188,12 +190,13 @@ sctp_cwnd_update_after_fr(struct sctp_tcb *stcb,
 						net->ssthresh = net->mtu;
 					}
 				} else {
-					net->ssthresh = net->cwnd / 2;
-					if (net->ssthresh < (net->mtu * 2)) {
-						net->ssthresh = 2 * net->mtu;
+					net->ssthresh = net->cwnd * 2 / 3;
+					if (net->ssthresh < (net->mtu * 10)) {
+						net->ssthresh = 10 * net->mtu;
 					}
 				}
-				net->cwnd = net->ssthresh;
+				// enter into CA.
+				net->cwnd = net->ssthresh + 1;
 				sctp_enforce_cwnd_limit(asoc, net);
 #if defined(__FreeBSD__) && !defined(__Userspace__)
 				SDT_PROBE5(sctp, cwnd, net, fr,
@@ -234,6 +237,10 @@ sctp_cwnd_update_after_fr(struct sctp_tcb *stcb,
 				                SCTP_FROM_SCTP_CC_FUNCTIONS + SCTP_LOC_1);
 				sctp_timer_start(SCTP_TIMER_TYPE_SEND,
 						 stcb->sctp_ep, stcb, net);
+			}
+			} else {
+				// no loss
+				net->continues_loss_cnt = 0;
 			}
 		} else if (net->net_ack > 0) {
 			/*
@@ -1155,9 +1162,9 @@ sctp_cwnd_update_after_timeout(struct sctp_tcb *stcb, struct sctp_nets *net)
 			net->ssthresh = net->mtu;
 		}
 	} else {
-		net->ssthresh = max(net->cwnd / 2, 4 * net->mtu);
+		net->ssthresh = max(net->cwnd / 2, 10 * net->mtu);
 	}
-	net->cwnd = net->mtu;
+	net->cwnd = net->ssthresh;
 	net->partial_bytes_acked = 0;
 #if defined(__FreeBSD__) && !defined(__Userspace__)
 	SDT_PROBE5(sctp, cwnd, net, to,
