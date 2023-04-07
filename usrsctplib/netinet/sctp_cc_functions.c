@@ -1162,7 +1162,7 @@ sctp_cwnd_update_after_timeout(struct sctp_tcb *stcb, struct sctp_nets *net)
 			net->ssthresh = net->mtu;
 		}
 	} else {
-		net->ssthresh = max(net->cwnd / 2, 10 * net->mtu);
+		net->ssthresh = max(net->cwnd * 2 / 3, 10 * net->mtu);
 	}
 	net->cwnd = net->ssthresh;
 	net->partial_bytes_acked = 0;
@@ -1182,6 +1182,7 @@ static void
 sctp_cwnd_update_after_ecn_echo_common(struct sctp_tcb *stcb, struct sctp_nets *net,
                                        int in_window, int num_pkt_lost, int use_rtcc)
 {
+	printf("%s **********************\n", __func__);
 	int old_cwnd = net->cwnd;
 	if ((use_rtcc) && (net->lan_type == SCTP_LAN_LOCAL) && (net->cc_mod.rtcc.use_dccc_ecn)) {
 		/* Data center Congestion Control */
@@ -1740,15 +1741,15 @@ sctp_hs_cwnd_decrease(struct sctp_tcb *stcb, struct sctp_nets *net)
 	cur_val = net->cwnd >> 10;
 	if (cur_val < sctp_cwnd_adjust[0].cwnd) {
 		/* normal mode */
-		net->ssthresh = net->cwnd / 2;
-		if (net->ssthresh < (net->mtu * 2)) {
-			net->ssthresh = 2 * net->mtu;
+		net->ssthresh = net->cwnd * 4 / 5;
+		if (net->ssthresh < (net->mtu * 10)) {
+			net->ssthresh = 10 * net->mtu;
 		}
 		net->cwnd = net->ssthresh;
 	} else {
 		/* drop by the proper amount */
 		net->ssthresh = net->cwnd - (int)((net->cwnd / 100) *
-		    (int32_t)sctp_cwnd_adjust[net->last_hs_used].drop_percent);
+		    (int32_t)sctp_cwnd_adjust[net->last_hs_used].drop_percent / 3);
 		net->cwnd = net->ssthresh;
 		/* now where are we */
 		indx = net->last_hs_used;
