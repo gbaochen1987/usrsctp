@@ -1182,7 +1182,6 @@ static void
 sctp_cwnd_update_after_ecn_echo_common(struct sctp_tcb *stcb, struct sctp_nets *net,
                                        int in_window, int num_pkt_lost, int use_rtcc)
 {
-	printf("%s **********************\n", __func__);
 	int old_cwnd = net->cwnd;
 	if ((use_rtcc) && (net->lan_type == SCTP_LAN_LOCAL) && (net->cc_mod.rtcc.use_dccc_ecn)) {
 		/* Data center Congestion Control */

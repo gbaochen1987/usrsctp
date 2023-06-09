@@ -11070,23 +11070,25 @@ sctp_send_sack(struct sctp_tcb *stcb, int so_locked)
 	}
 	sctp_slide_mapping_arrays(stcb);
 	sctp_set_rwnd(stcb, asoc);
-	TAILQ_FOREACH(chk, &asoc->control_send_queue, sctp_next) {
-		if (chk->rec.chunk_id.id == type) {
-			/* Hmm, found a sack already on queue, remove it */
-			TAILQ_REMOVE(&asoc->control_send_queue, chk, sctp_next);
-			asoc->ctrl_queue_cnt--;
-			a_chk = chk;
-			if (a_chk->data) {
-				sctp_m_freem(a_chk->data);
-				a_chk->data = NULL;
-			}
-			if (a_chk->whoTo) {
-				sctp_free_remote_addr(a_chk->whoTo);
-				a_chk->whoTo = NULL;
-			}
-			break;
-		}
-	}
+	// Note(cgb): don't remove sack packet in queue
+	(void)chk;
+	// TAILQ_FOREACH(chk, &asoc->control_send_queue, sctp_next) {
+	// 	if (chk->rec.chunk_id.id == type) {
+	// 		/* Hmm, found a sack already on queue, remove it */
+	// 		TAILQ_REMOVE(&asoc->control_send_queue, chk, sctp_next);
+	// 		asoc->ctrl_queue_cnt--;
+	// 		a_chk = chk;
+	// 		if (a_chk->data) {
+	// 			sctp_m_freem(a_chk->data);
+	// 			a_chk->data = NULL;
+	// 		}
+	// 		if (a_chk->whoTo) {
+	// 			sctp_free_remote_addr(a_chk->whoTo);
+	// 			a_chk->whoTo = NULL;
+	// 		}
+	// 		break;
+	// 	}
+	// }
 	if (a_chk == NULL) {
 		sctp_alloc_a_chunk(stcb, a_chk);
 		if (a_chk == NULL) {
@@ -11136,6 +11138,12 @@ sctp_send_sack(struct sctp_tcb *stcb, int so_locked)
 		highest_tsn = asoc->highest_tsn_inside_map;
 	} else {
 		highest_tsn = asoc->highest_tsn_inside_nr_map;
+	}
+	// printf("%s delayed_ack: %d, highest_tsn: %u, cumulative_tsn: %u, mapping_array_base_tsn: %u\n", __func__,
+	// 				stcb->asoc.delayed_ack,	highest_tsn, asoc->cumulative_tsn, asoc->mapping_array_base_tsn);
+	uint32_t bak_cumlative_tsn = asoc->cumulative_tsn;
+	if (highest_tsn - asoc->cumulative_tsn > 20) {
+		bak_cumlative_tsn = highest_tsn - 20;
 	}
 	if (highest_tsn == asoc->cumulative_tsn) {
 		/* no gaps */
@@ -11227,6 +11235,7 @@ sctp_send_sack(struct sctp_tcb *stcb, int so_locked)
 	} else {
 		offset = asoc->mapping_array_base_tsn - asoc->cumulative_tsn;
 	}
+	// Note(cgb): append gap array
 	if (((type == SCTP_SELECTIVE_ACK) &&
 	     SCTP_TSN_GT(highest_tsn, asoc->cumulative_tsn)) ||
 	    ((type == SCTP_NR_SELECTIVE_ACK) &&
@@ -11388,19 +11397,22 @@ sctp_send_sack(struct sctp_tcb *stcb, int so_locked)
 		                              (num_gap_blocks + num_nr_gap_blocks) * sizeof(struct sctp_gap_ack_block) +
 		                              num_dups * sizeof(int32_t));
 		SCTP_BUF_LEN(a_chk->data) = a_chk->send_size;
-		sack->sack.cum_tsn_ack = htonl(asoc->cumulative_tsn);
+		// sack->sack.cum_tsn_ack = htonl(asoc->cumulative_tsn);
+		sack->sack.cum_tsn_ack = htonl(bak_cumlative_tsn);
 		sack->sack.a_rwnd = htonl(asoc->my_rwnd);
 		sack->sack.num_gap_ack_blks = htons(num_gap_blocks);
 		sack->sack.num_dup_tsns = htons(num_dups);
 		sack->ch.chunk_type = type;
 		sack->ch.chunk_flags = flags;
 		sack->ch.chunk_length = htons(a_chk->send_size);
+		// printf("SACK cum_tsn_ack:%u,  num_gap_ack_blks: %d\n", asoc->cumulative_tsn, num_gap_blocks);
 	} else {
 		a_chk->send_size = (uint16_t)(sizeof(struct sctp_nr_sack_chunk) +
 		                              (num_gap_blocks + num_nr_gap_blocks) * sizeof(struct sctp_gap_ack_block) +
 		                              num_dups * sizeof(int32_t));
 		SCTP_BUF_LEN(a_chk->data) = a_chk->send_size;
-		nr_sack->nr_sack.cum_tsn_ack = htonl(asoc->cumulative_tsn);
+		// nr_sack->nr_sack.cum_tsn_ack = htonl(asoc->cumulative_tsn);
+		nr_sack->nr_sack.cum_tsn_ack = htonl(bak_cumlative_tsn);
 		nr_sack->nr_sack.a_rwnd = htonl(asoc->my_rwnd);
 		nr_sack->nr_sack.num_gap_ack_blks = htons(num_gap_blocks);
 		nr_sack->nr_sack.num_nr_gap_ack_blks = htons(num_nr_gap_blocks);
@@ -11409,6 +11421,7 @@ sctp_send_sack(struct sctp_tcb *stcb, int so_locked)
 		nr_sack->ch.chunk_type = type;
 		nr_sack->ch.chunk_flags = flags;
 		nr_sack->ch.chunk_length = htons(a_chk->send_size);
+		// printf("NR_SACK cum_tsn_ack:%u,  num_gap_ack_blks: %d\n", asoc->cumulative_tsn, num_nr_gap_blocks);
 	}
 	TAILQ_INSERT_TAIL(&asoc->control_send_queue, a_chk, sctp_next);
 	asoc->my_last_reported_rwnd = asoc->my_rwnd;
