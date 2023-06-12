@@ -11142,7 +11142,8 @@ sctp_send_sack(struct sctp_tcb *stcb, int so_locked)
 	// printf("%s delayed_ack: %d, highest_tsn: %u, cumulative_tsn: %u, mapping_array_base_tsn: %u\n", __func__,
 	// 				stcb->asoc.delayed_ack,	highest_tsn, asoc->cumulative_tsn, asoc->mapping_array_base_tsn);
 	uint32_t bak_cumlative_tsn = asoc->cumulative_tsn;
-	if (highest_tsn - asoc->cumulative_tsn > 20) {
+	if (SCTP_TSN_GT(highest_tsn, asoc->cumulative_tsn) &&
+			highest_tsn - asoc->cumulative_tsn > 20) {
 		bak_cumlative_tsn = highest_tsn - 20;
 	}
 	if (highest_tsn == asoc->cumulative_tsn) {
