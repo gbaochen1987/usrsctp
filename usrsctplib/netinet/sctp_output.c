@@ -11143,12 +11143,12 @@ sctp_send_sack(struct sctp_tcb *stcb, int so_locked)
 	// 				stcb->asoc.delayed_ack,	highest_tsn, asoc->cumulative_tsn, asoc->mapping_array_base_tsn);
 	struct timeval cur_tv;
 	(void)SCTP_GETTIME_TIMEVAL(&cur_tv);
-	uint32_t max_diff_tsn = 5;
-	if (cur_tv.tv_sec - asoc->time_entered.tv_sec <= 15) {
-		max_diff_tsn = 15;
-	} else if (cur_tv.tv_sec - asoc->time_entered.tv_sec <= 30) {
-		max_diff_tsn = 10;
-	}
+	uint32_t max_diff_tsn = 15;
+//	if (cur_tv.tv_sec - asoc->time_entered.tv_sec <= 15) {
+//		max_diff_tsn = 15;
+// 	} else if (cur_tv.tv_sec - asoc->time_entered.tv_sec <= 30) {
+//		max_diff_tsn = 10;
+//	}
 
 	uint32_t bak_cumlative_tsn = asoc->cumulative_tsn;
 	if (SCTP_TSN_GT(highest_tsn, asoc->cumulative_tsn) &&
